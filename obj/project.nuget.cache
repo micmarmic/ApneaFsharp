@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "QMxnV+THv2ug+WzYyffJL+3Y0ZqzxfQiGMjqgm73cdbqMZcUzukqwQqGRhNFTpiJUG9bt00nJT1G0CljWmfg0A==",
+  "success": true,
+  "projectFilePath": "D:\\Documents\\programming\\f#\\Apnea\\Apnea.fsproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\michel\\.nuget\\packages\\fsharp.core\\7.0.0\\fsharp.core.7.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}
