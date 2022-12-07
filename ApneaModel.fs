@@ -41,7 +41,8 @@ module ApneaModel =
 
     type CpapDay = {
         StartDate: SleepStartDate
-        Sessions: CpapSession list
+        // Sessions: CpapSession list
+        Sessions : string array
     }
 
     let apneaEventToString (event: ApneaEvent) : string = 
@@ -50,8 +51,12 @@ module ApneaModel =
             (timeStringToString event.EventTime)
             (event.EventType.ToString())
 
+    let getFileNameOnly (filepath : string): string = 
+        filepath.Substring(filepath.LastIndexOf("\\") + 1)
+
 
 module ApneaFileReader =
+
 
     (*
         TOP LEVEL FILE PROCESSING
@@ -74,29 +79,32 @@ module ApneaFileReader =
         |> Array.map Path.GetFileName 
         |> Array.iter (printfn "%s") 
 *)
+    // string -> [CpapSession]    
+    let importSessions folderPath =
+        Directory.GetFiles(folderPath) 
+        |> Array.map Path.GetFileName 
 
-    let importDay (allCpapDays : List<CpapDay>) (folderPath : string): unit =
+    // importDay: string -> CpapDay
+    // stores all info about day in CpapDay, including sessions, apnea events, etc.
+    let importDay (folderPath : string): CpapDay =
         (*
         let index : int = folderPath.LastIndexOf("\\")
         printfn ("%d %s") index (folderPath.Substring (index + 1))
         *)
 
-        let yyyymmdd : string = folderPath.Substring(folderPath.LastIndexOf("\\") + 1)
-        let cpapDay : CpapDay = { 
+        let yyyymmdd : string = getFileNameOnly folderPath
+        // printfn "??? %d"  (temp.Length)
+        { 
             StartDate =  (SleepStartDate yyyymmdd)
-            Sessions = []
-        }   
-        allCpapDays.Add(cpapDay)                
+            Sessions = (importSessions folderPath)
+        }           
         
 
     let importAllFolders =         
         // get directories in source folder - each folder is a day
         let sourceDirectory = "d:\\documents\\cpap\\DATALOG"
-        let allCpapDays: List<CpapDay> = new List<CpapDay>()
-    
+        // let allFolders= Array.sort [| for path in Directory.EnumerateDirectories(sourceDirectory) -> path|] 
+        // return list of days based on list of folders
+        Array.map importDay (Array.sort [| for path in Directory.EnumerateDirectories(sourceDirectory) -> path|] )
         
-        [| for path in Directory.EnumerateDirectories(sourceDirectory) -> path|] 
-            |> Array.iter (fun item -> importDay allCpapDays item)
-
-        allCpapDays
 

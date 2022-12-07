@@ -1,5 +1,6 @@
 ﻿open apnea.ApneaModel
 open apnea.ApneaFileReader
+open apnea.BinaryFileReader
 
 printfn "Hello from F#"
 
@@ -11,7 +12,13 @@ let ev1 : ApneaEvent = {
 
 // printfn "%s" (apneaEventToString ev1)
 let allDays = importAllFolders
-for item in  allDays
-    do printfn "CpapDay %s" (sleepStartDateToString item.StartDate)
 
+(* for day in  allDays
+    do 
+        printfn "%s %d" (sleepStartDateToString day.StartDate) day.Sessions.Length
+        for sess in day.Sessions do 
+            printfn "  %s" sess *)
 
+testReadHeader
+
+// readOtherMethod "d:\\documents\\cpap\\DATALOG\\20220708\\20220708_234211_BRP.edf"

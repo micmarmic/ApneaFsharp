@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ApneaModel.fs" />
+    <Compile Include="BinaryFileReader.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 </Project>
