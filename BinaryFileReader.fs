@@ -6,27 +6,45 @@ module BinaryFileReader =
 
     open System  // convert
     open System.IO  // File, BinaryReader
+    open System.Globalization
     open ApneaModel
 
     type EdfHeader = {        
-        StartDateTime: SleepStartDate
+        StartDate: DateOnly
+        StartTime: TimeOnly
         BytesInHeader: int
         NumberOfRecords: int        
         RecordLength: int
     }
 
-    let skipReaderToPosition (reader:BinaryReader) (position:int) =
-        reader.BaseStream.Seek(position, SeekOrigin.Begin) |> ignore 
+    //
+    // HELPERS (GENERIC)
+    //
 
+    let edfStringTimeToDateOnly (stringDate : string) : DateOnly =
+        DateOnly.ParseExact(stringDate.[0..7], "dd.MM.yy", CultureInfo.InvariantCulture)
+
+    let edfStringTimeToTimeOnly (stringDate : string) : TimeOnly =
+        TimeOnly.ParseExact(stringDate.[8..], "H.mm.s", CultureInfo.InvariantCulture)
 
     let fileLength (filepath : string): int =         
         let f : FileInfo = FileInfo filepath
         int(f.Length) // int64 -> int32 could be lossy, but EDF files are not that big
 
+    let skipReaderToPosition (reader:BinaryReader) (position:int) =
+        reader.BaseStream.Seek(position, SeekOrigin.Begin) |> ignore 
 
     let getNBytesAsString (reader : BinaryReader) (nBytes : int): string =    
         let byteArray = reader.ReadBytes(nBytes)
         System.Text.Encoding.Default.GetString(byteArray).Trim()
+
+    let getNBytesAsStringAtPosition (reader:BinaryReader) (nBytes : int) (position:int) : string =
+        skipReaderToPosition reader position
+        getNBytesAsString reader nBytes        
+
+    //
+    // EDF DOMAIN SPECIFIC
+    //
 
     // string (dd.mm.yyhh.mm.ss) -> string (yymmdd hh.mm.ss)
     let formatEdfDateTime (edfDateTime : string) : string =
@@ -36,64 +54,74 @@ module BinaryFileReader =
             edfDateTime.[0..1]
             (edfDateTime.[8..].Replace(".", ":"))
 
+    let testGetEvents (reader : BinaryReader) (header : EdfHeader)  =
+        // loop from header + firstRecord (meaningless for ResMed data)
+        let startPosition = header.BytesInHeader + header.RecordLength
+        // loop to position of last record (-1 because we skipped the first record, -1 because loop is zero-based)
+        let lastStart = startPosition + (header.NumberOfRecords - 2) * header.RecordLength
+        let result : int list = [ for pos in startPosition .. header.RecordLength .. lastStart  do pos + 0 ]
+        printfn "Num Records: %d Expect to read: %d LastStart: %d" header.NumberOfRecords (header.NumberOfRecords - 1) lastStart
+        printfn "BytesInHeader: %d RecordLength: %d Expect start at: %d" header.BytesInHeader header.RecordLength (header.BytesInHeader + header.RecordLength)
+        printfn "Actual start: %d Num times in loop (len of seq): %d" startPosition result.Length
+        printfn "List: %O" result
+
+
+    // filename -> EdfHeader
+    // error if first eight bytes don't contain expected marker
     let readEdfHeader (filename : string) : EdfHeader =
         use stream = File.Open(filename, FileMode.Open, FileAccess.Read)
         use reader = new BinaryReader(stream)
 
-        // #0 -> #8 (8)
-        // look for 0 in first 8 bytes; fail if not found
-        // STREAM POSITION 0 to 7
+        (*
+            EDF Header Format (as used by ResMed in CPAP/BIPAP machines in 2022)
+            position #bytes     description
+            0           8       check: file type marker (bytes to string to int; expect 0)
+            8           160     skip: 80 bytes patient Id (bytes to string); 80 bytes recording id (bytes to string)
+            168         16      keep: date string dd.mm.yyhh.mm.ss (bytes to string)
+            184         8       keep: # bytes in header (bytes to string to int)
+            192         44      skip: reserved
+            236         8       keep: number of records
+
+            record length = (file length - bytes in header) / number of records
+        *)
+
+
+        // check first eight bytes for file type        
         let firstEight = getNBytesAsString reader 8
         if (firstEight <> "0") then failwith (sprintf "First eight bytes in file doesn't match expectations: %s" filename)
-        
-        // #8 -> #168 (160)
-        // SKIP 2 x 80 bytes to position 168
-        // let skip0 = getNBytesAsString reader 160
-        skipReaderToPosition reader  168
-
-        // #168 -> 184 (16)
-        // START DATE spec is 2 x 8 bytes: 29.08.2223.45.18 (dd.mm.yyhh.mm.sssss)
-        let dateString : string = getNBytesAsString reader 16
-        printfn "date string %s" dateString
-
-        // # 184 -> 192 (8) 
-        // no skip: consecutive reads
+        // read values and calculate record length
+        let dateString = getNBytesAsStringAtPosition reader 16 168
+        // bytes in header is consecutive to datestring, don't need to position at 184, just read
         let bytesInHeader = int(getNBytesAsString reader 8)
-        
-        // # 192 -> 236 (44)
-        // SKIP 44 reserved
-        // let skip1 = getNBytesAsString reader 44
-        // _ = br.ReadBytes(44);
-        skipReaderToPosition reader 236
-
-        // NUMBER OF RECORDS
-        // numberOfRecords = int.Parse(GetStringFromNBytes(8));
-        let numberOfRecords = int(getNBytesAsString reader 8)
-        printfn "number of records %d" numberOfRecords
-
-       
+        let numberOfRecords = int(getNBytesAsStringAtPosition reader 8 236)
         let recordLength = ((fileLength filename) - bytesInHeader) / numberOfRecords
 
-        {
-            StartDateTime = SleepStartDate dateString
-            BytesInHeader = bytesInHeader
-            NumberOfRecords = numberOfRecords
-            RecordLength = recordLength
-        }
 
+        // construct EdfHeader
+        let header : EdfHeader = 
+            {
+                StartDate = (edfStringTimeToDateOnly dateString)
+                StartTime = (edfStringTimeToTimeOnly dateString)
+                BytesInHeader = bytesInHeader
+                NumberOfRecords = numberOfRecords
+                RecordLength = recordLength
+            }
+
+        testGetEvents reader header
+        header
 
     let testReadHeader : unit =
         let header = readEdfHeader "d:\\documents\\cpap\\DATALOG\\20220708\\20220709_014647_EVE.edf"
         printfn "%O" header
 
+    
+    // reader -> ApneaEvent
+    // PRE-CONDITION: the file position must be set correctly
+    // POST-CONDITION: 
+    // let getEvent 
+
 
 (* 
-        private void ReadEventsFromFile()
-        {
-            /*
-             * Sample record
-             * 0 +9240Hypopnea                 Ü§+             * 
-             */
 
             // Position stream at beginning of first record
             // Skip header and first record that holds no data.
