@@ -40,11 +40,39 @@ module BinaryFileReader =
 
     let getNBytesAsStringAtPosition (reader:BinaryReader) (nBytes : int) (position:int) : string =
         skipReaderToPosition reader position
-        getNBytesAsString reader nBytes        
+        getNBytesAsString reader nBytes
+
+    let getStringFromPosToMarker (reader:BinaryReader) (position:int) (stopByte : byte) : string =
+
+let NAK : byte = 21uy
+let DC4 : byte = 20uy
+let selectedBytes : byte list = [ 64uy; 65uy]
+let isNAK x =  x = NAK
+let result = selectedBytes |> List.findIndex (fun b -> isNAK b)
+printfn "index %d list %s" (selectedBytes.ToString())
+
 
     //
     // EDF DOMAIN SPECIFIC
     //
+
+    let processRecord (reader : BinaryReader) (pos : int) (recordLength : int): ApneaEvent = 
+        skipReaderToPosition reader pos
+        reader.ReadBytes(recordLength)
+
+        // the first data is at byte 6
+        let start = 6
+
+        // string value for seconds from start goes to NAK (hex: 15 decimal: 21)        
+        let stringValue : string = getStringFromPosToMarker reader start 21
+        {
+            EventType = EventType.Unknown
+            StartDate = SleepStartDate "2022-11-11"
+            EventTime = TimeString "12:44"
+        }
+    
+
+
 
     // string (dd.mm.yyhh.mm.ss) -> string (yymmdd hh.mm.ss)
     let formatEdfDateTime (edfDateTime : string) : string =
