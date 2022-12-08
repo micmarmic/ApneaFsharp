@@ -4,6 +4,8 @@ namespace apnea
 module RunEdfReaderEXE = 
 *)
     open System.IO
+    open System.Threading.Tasks
+    open System.Diagnostics // ProcessStartInfo
 
     let configEdf2AsciiExeName = "edf2ascii.exe"
     let configPathWorkingDirectory = "edfreader"
@@ -33,8 +35,28 @@ module RunEdfReaderEXE =
             ()
         directory
 
-    printfn "start ............"
+    open System.Threading.Tasks
+    open System.Diagnostics
+    let runExeProcess (pathToExe : string) (pathFileToConvert : string) (pathWorkDir : string)=
+        // run the exe with the input file name
+(*         let procInfo = ProcessStartInfo(
+                FileName = pathToExe,
+                Arguments = pathFileToConvert,
+                WorkingDirectory = pathWorkDir,
+                CreateNoWindow = true)
+ *)     
+        let proc = new Process()
+        proc.StartInfo.FileName = pathToExe
+        proc.StartInfo.Arguments = pathFileToConvert
+        proc.StartInfo.WorkingDirectory = pathWorkDir
+        proc.StartInfo.CreateNoWindow = true
+
+        proc.Start()
+        proc.WaitForExit()
+
+    runExeProcess @"d:\Documents\programming\c#\CPAPGraphsCSharp\EDFFileReader\edf2ascii\edf2ascii.exe"  @"D:\TEMP2\20220712\20220628_235657_EVE.edf" @"D:\TEMP2\20220712"
+(*     printfn "start ............"
     let workingDir = prepareWorkingDirectory configPathWorkingDirectory  false configEdf2AsciiExeName  
     printfn "Wdir %s" workingDir
     printfn "done ............"
-
+ *)
